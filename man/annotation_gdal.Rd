@@ -4,7 +4,7 @@
 \name{annotation_gdal}
 \alias{annotation_gdal}
 \alias{GeomGdal}
-\title{Add background OSM tiles}
+\title{Add background imagery}
 \format{
 An object of class \code{GeomGdal} (inherits from \code{Geom}, \code{ggproto}, \code{gg}) of length 5.
 }
@@ -33,10 +33,11 @@ GeomGdal
 A ggplot2 layer
 }
 \description{
-Uses \code{\link[rosm:osm.image]{rosm::osm.image()}} to add background tiles. If you are publishing
+Uses OpenStreetMap or VirtualEarth to add background imagery, or a custom source via 'dsn'.
+If you are publishing
 a map using these tiles, make sure to use the proper attribution
 (e.g., "Copyright OpenStreetMap contributors" when using an
-OpenStreetMap-based tile set).
+OpenStreetMap-based tile set).  Ditto for VirtualEarth or any dsn you use.
 }
 \examples{
 \donttest{

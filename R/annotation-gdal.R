@@ -7,12 +7,13 @@
   "<GDAL_WMS><Service name=\"VirtualEarth\"><ServerUrl>http://a${server_num}.ortho.tiles.virtualearth.net/tiles/a${quadkey}.jpeg?g=90</ServerUrl></Service><MaxConnections>4</MaxConnections><Cache/></GDAL_WMS>"
 }
 
-#' Add background OSM tiles
+#' Add background imagery
 #'
-#' Uses [rosm::osm.image()] to add background tiles. If you are publishing
+#' Uses OpenStreetMap or VirtualEarth to add background imagery, or a custom source via 'dsn'.
+#'  If you are publishing
 #' a map using these tiles, make sure to use the proper attribution
 #' (e.g., "Copyright OpenStreetMap contributors" when using an
-#' OpenStreetMap-based tile set).
+#' OpenStreetMap-based tile set).  Ditto for VirtualEarth or any dsn you use.
 #'
 #' @param dsn The map source (currently 'osm' or 'virtualearth' are built-in - whatarelief streetmap, or imagery, otherwise use a GDAL DSN)
 #' @param interpolate Passed to [grid::rasterGrob()]
@@ -21,7 +22,8 @@
 #'
 #' @return A ggplot2 layer
 #' @export
-#'
+#' @importFrom whatarelief imagery
+#' @importFrom grDevices as.raster rgb col2rgb
 #' @examples
 #' \donttest{
 #' library(ggplot2)
@@ -121,8 +123,8 @@ GeomGdal <- ggplot2::ggproto(
                                           extent = ex, projection = prj, dimension = dm, resample = resample))
     if (alpha < 1) {
       ## slow but will do
-      rgb0 <- col2rgb(img)/255
-      img <- as.raster(matrix(rgb(rgb0[1, ], rgb0[2, ], rgb0[3L, ], rep(alpha, dim(rgb0)[2L])), dm[2L], byrow = TRUE))
+      rgb0 <- grDevices::col2rgb(img)/255
+      img <- grDevices::as.raster(matrix(grDevices::rgb(rgb0[1, ], rgb0[2, ], rgb0[3L, ], rep(alpha, dim(rgb0)[2L])), dm[2L], byrow = TRUE))
     }
     corners <- data.frame(x = ex[1:2], y = ex[3:4])
 
