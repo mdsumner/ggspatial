@@ -22,15 +22,14 @@
 #'
 #' @return A ggplot2 layer
 #' @export
-#' @importFrom whatarelief imagery
-#' @importFrom grDevices as.raster rgb col2rgb
+#' @importfrom scales rescale
 #' @examples
 #' \donttest{
 #' library(ggplot2)
 #' load_longlake_data(which = "longlake_waterdf")
 #'
 #' ggplot() +
-#'   annotation_gdal() +
+#'   annotation_gdalwarp() +
 #'   geom_sf(data = sf::st_transform(longlake_waterdf, "+proj=laea +lon_0=-64 +lat_0=45"), fill = NA, col = "grey50")
 #'
 #' pts <- do.call(cbind, maps::map(plot = F)[1:2])
@@ -38,23 +37,23 @@
 #' pts <- pts[seq(1, nrow(pts), length.out = 8000), ]
 #' sf <- sf::st_sf(geom = sf::st_sfc(sf::st_multipoint(pts), crs = "OGC:CRS84"))
 #' ggplot() +
-#'   annotation_gdal(dsn = "virtualearth") +
+#'   annotation_gdalwarp(dsn = "virtualearth") +
 #'   geom_sf(data = sf::st_transform(sf, "+proj=laea +lon_0=-64 +lat_0=45"), fill = NA, col = "yellow", pch = ".")
 #'
 #' pts2 <- pts[pts[,1] > -130 & pts[,1] < -60 & pts[,2] > 30 & pts[,2] < 80, ]
 #' sf <- sf::st_sf(geom = sf::st_sfc(sf::st_multipoint(pts2), crs = "OGC:CRS84"))
 #' ggplot() +
-#'   annotation_gdal(dsn = "virtualearth") +
+#'   annotation_gdalwarp(dsn = "virtualearth") +
 #'   geom_sf(data = sf::st_transform(sf, "EPSG:5070"), fill = NA, col = "yellow", pch = ".")
 #' wms_arcgis_mapserver_tms <-
 #' "<GDAL_WMS><Service name=\"TMS\"><ServerUrl>http://services.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/${z}/${y}/${x}</ServerUrl></Service><DataWindow><UpperLeftX>-20037508.34</UpperLeftX><UpperLeftY>20037508.34</UpperLeftY><LowerRightX>20037508.34</LowerRightX><LowerRightY>-20037508.34</LowerRightY><TileLevel>17</TileLevel><TileCountX>1</TileCountX><TileCountY>1</TileCountY><YOrigin>top</YOrigin></DataWindow><Projection>EPSG:900913</Projection><BlockSizeX>256</BlockSizeX><BlockSizeY>256</BlockSizeY><BandsCount>3</BandsCount><MaxConnections>10</MaxConnections><Cache /></GDAL_WMS>"
 #' ggplot() +
-#'   annotation_gdal(dsn = wms_arcgis_mapserver_tms, resample ="lanczos") +
+#'   annotation_gdalwarp(dsn = wms_arcgis_mapserver_tms, resample ="lanczos") +
 #'   geom_sf(data = sf::st_transform(sf, "EPSG:5070"), fill = NA, col = "hotpink", pch = 19, cex = 0.2)
 #'
 #' }
 #'
-annotation_gdal <- function(dsn = c("osm", "virtualearth"), resample = "bilinear",
+annotation_gdalwarp <- function(dsn = c("osm", "virtualearth"), resample = "bilinear",
                             interpolate = FALSE, data = NULL, mapping = NULL, alpha = 1) {
 
   if(is.null(data)) {
@@ -80,7 +79,7 @@ annotation_gdal <- function(dsn = c("osm", "virtualearth"), resample = "bilinear
 }
 
 #' @export
-#' @rdname annotation_gdal
+#' @rdname annotation_gdal_warp
 GeomGdal <- ggplot2::ggproto(
   "GeomGdal",
   ggplot2::Geom,
@@ -117,14 +116,20 @@ GeomGdal <- ggplot2::ggproto(
     }
 
     ## the user has passed in a DSN
+    if (is.null(src))  src <- dsn
 
-   if (is.null(src))  src <- dsn
-    img <- as.raster(whatarelief::imagery(source = src,
-                                          extent = ex, projection = prj, dimension = dm, resample = resample))
+    err <- sf::gdal_utils("warp", source = src, destination = tf <- tempfile(fileext = ".tif"), options = c("-te", ex[1], ex[3], ex[2], ex[4],
+                                                                                                     "-ts", dm[1], dm[2],
+                                                                                                     "-t_srs", prj,
+                                                                                     "-r", resample), quiet = TRUE)
+    if (file.exists(tf)) {
+      img1 <- sf::gdal_read(tf)
+      img <- as.raster(aperm(attr(img1, "data"), c(2, 1, 3))/255)
+    } else {
+      stop(sprintf("raster read of %s failed\n", src))
+    }
     if (alpha < 1) {
-      ## slow but will do
-      rgb0 <- grDevices::col2rgb(img)/255
-      img <- grDevices::as.raster(matrix(grDevices::rgb(rgb0[1, ], rgb0[2, ], rgb0[3L, ], rep(alpha, dim(rgb0)[2L])), dm[2L], byrow = TRUE))
+       img <- as.raster(matrix(scales::alpha(img, alpha = alpha), dm[2], byrow = TRUE))
     }
     corners <- data.frame(x = ex[1:2], y = ex[3:4])
 
